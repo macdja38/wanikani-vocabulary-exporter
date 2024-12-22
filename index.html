@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WaniKani Vocabulary Filter</title>
+</head>
+<body>
+  <h1>WaniKani Well-Known Vocabulary</h1>
+  <label for="apiKey">Enter WaniKani API Key:</label>
+  <input type="text" id="apiKey" placeholder="Enter API Key" />
+  <br /><br />
+
+  <label for="threshold">Select Threshold:</label>
+  <select id="threshold">
+    <option value="1">Apprentice (1-4)</option>
+    <option value="5">Guru (5-6)</option>
+    <option value="7">Master (7)</option>
+    <option value="8">Enlightened (8)</option>
+    <option value="9">Burned (9)</option>
+  </select>
+  <br /><br />
+
+  <button id="fetchData">Fetch Vocabulary</button>
+  <h2>Vocabulary List:</h2>
+  <p id="vocabList">Press the button to load vocabulary.</p>
+
+  <script>
+    document.getElementById('fetchData').addEventListener('click', async () => {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const selectedThreshold = parseInt(document.getElementById('threshold').value);
+
+      if (!apiKey) {
+        alert('Please enter your API key!');
+        return;
+      }
+
+      const BASE_URL = 'https://api.wanikani.com/v2/assignments';
+      let vocabList = [];
+      let url = `${BASE_URL}?subject_types=vocabulary`;
+
+      async function fetchVocabulary() {
+        while (url) {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+            },
+          });
+
+          if (!response.ok) {
+            alert(`Error fetching data: ${response.statusText}`);
+            return;
+          }
+
+          const data = await response.json();
+
+          // Filter vocabulary based on SRS stage threshold
+          const filteredVocab = await Promise.all(
+            data.data
+              .filter((item) => item.data.srs_stage >= selectedThreshold) // Check SRS stage
+              .map(async (item) => {
+                // Fetch vocabulary details
+                const subjectResponse = await fetch(
+                  `https://api.wanikani.com/v2/subjects/${item.data.subject_id}`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      Authorization: `Bearer ${apiKey}`,
+                    },
+                  }
+                );
+                const subjectData = await subjectResponse.json();
+                return subjectData.data.slug; // Return vocabulary word
+              })
+          );
+
+          vocabList = vocabList.concat(filteredVocab);
+
+          // Check for more pages
+          url = data.pages.next_url;
+        }
+
+        document.getElementById('vocabList').innerText = vocabList.join(', ');
+      }
+
+      await fetchVocabulary();
+    });
+  </script>
+</body>
+</html>
