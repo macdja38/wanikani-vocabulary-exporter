@@ -24,16 +24,25 @@
   <button id="fetchData">Fetch Vocabulary</button>
   <h2>Vocabulary List:</h2>
   <p id="vocabList">Press the button to load vocabulary.</p>
+  <p id="loadingMessage" style="font-style: italic;"></p> <!-- Loading message -->
 
   <script>
     document.getElementById('fetchData').addEventListener('click', async () => {
       const apiKey = document.getElementById('apiKey').value.trim();
       const selectedThreshold = parseInt(document.getElementById('threshold').value);
+      const fetchButton = document.getElementById('fetchData');
+      const loadingMessage = document.getElementById('loadingMessage');
+      const vocabListElement = document.getElementById('vocabList');
 
       if (!apiKey) {
         alert('Please enter your API key!');
         return;
       }
+
+      // Disable the button and show loading message
+      fetchButton.disabled = true;
+      loadingMessage.innerText = 'Loading... Please wait.';
+      vocabListElement.innerText = ''; // Clear previous results
 
       const BASE_URL = 'https://api.wanikani.com/v2/assignments';
       let vocabList = [];
@@ -102,10 +111,19 @@
           url = data.pages.next_url;
         }
 
-        document.getElementById('vocabList').innerText = vocabList.join(', ');
+        // Update UI
+        vocabListElement.innerText = vocabList.join(', ') || 'No vocabulary found.';
       }
 
-      await fetchVocabulary();
+      try {
+        await fetchVocabulary();
+      } catch (error) {
+        alert('An error occurred: ' + error.message);
+      } finally {
+        // Restore button and clear loading message
+        fetchButton.disabled = false;
+        loadingMessage.innerText = '';
+      }
     });
   </script>
 </body>
