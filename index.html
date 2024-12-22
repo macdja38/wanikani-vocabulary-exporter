@@ -39,9 +39,32 @@
       let vocabList = [];
       let url = `${BASE_URL}?subject_types=vocabulary`;
 
+      async function fetchWithRateLimit(url, options) {
+        let response;
+
+        while (true) {
+          response = await fetch(url, options);
+
+          // Handle rate limiting using Ratelimit headers
+          if (response.status === 429 || parseInt(response.headers.get('Ratelimit-Remaining')) === 0) {
+            const resetTime = parseInt(response.headers.get('Ratelimit-Reset')) * 1000; // Convert to milliseconds
+            const waitTime = resetTime - Date.now();
+
+            if (waitTime > 0) {
+              console.warn(`Rate limited. Waiting for ${Math.ceil(waitTime / 1000)} seconds.`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+            }
+          } else {
+            break; // Exit loop if not rate-limited
+          }
+        }
+
+        return response;
+      }
+
       async function fetchVocabulary() {
         while (url) {
-          const response = await fetch(url, {
+          const response = await fetchWithRateLimit(url, {
             method: 'GET',
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -61,7 +84,7 @@
               .filter((item) => item.data.srs_stage >= selectedThreshold) // Check SRS stage
               .map(async (item) => {
                 // Fetch vocabulary details
-                const subjectResponse = await fetch(
+                const subjectResponse = await fetchWithRateLimit(
                   `https://api.wanikani.com/v2/subjects/${item.data.subject_id}`,
                   {
                     method: 'GET',
@@ -70,6 +93,7 @@
                     },
                   }
                 );
+
                 const subjectData = await subjectResponse.json();
                 return subjectData.data.slug; // Return vocabulary word
               })
